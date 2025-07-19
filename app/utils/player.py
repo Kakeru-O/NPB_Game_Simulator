@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict, Tuple, Any
 
-from app.utils.constants import EVENT_TYPES, EVENT_CONFIG, STAT_KEYS
+from .constants import EVENT_TYPES, EVENT_CONFIG, STAT_KEYS
 
 class Player:
     """野球選手とその成績を管理するクラス。"""

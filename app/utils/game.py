@@ -4,8 +4,8 @@ import numpy as np
 from collections import deque
 from typing import List, Tuple, Any
 
-from app.utils.constants import EVENT_CONFIG
-from app.utils.player import Player
+from .constants import EVENT_CONFIG
+from .player import Player
 
 class BaseballGame:
     """野球の試合をシミュレートするクラス。"""
