@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from typing import List, Dict, Tuple, Any
 
-from app.utils.player import Player
-from app.utils.game import BaseballGame
-from app.utils.constants import EVENT_TYPES # CSV読み込み時の確認用
+from .player import Player
+from .game import BaseballGame
+from .constants import EVENT_TYPES # CSV読み込み時の確認用
 
 def load_players_from_csv(file_path: str, num_players: int = 9) -> List[Player]:
     """
