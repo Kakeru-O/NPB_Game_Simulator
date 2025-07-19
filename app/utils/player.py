@@ -8,7 +8,7 @@ from .constants import EVENT_TYPES, EVENT_CONFIG, STAT_KEYS
 
 class Player:
     """野球選手とその成績を管理するクラス。"""
-    def __init__(self, name: str, probabilities: List[float]):
+    def __init__(self, name: str, probabilities: List[float], speed: int = 0):
         """
         Args:
             name (str): 選手名。
@@ -22,6 +22,7 @@ class Player:
 
         self.name = name
         self.probabilities = np.array(probabilities)
+        self.speed = speed # 新しく追加
         self.stats: Dict[str, int] = {}
         self.reset_stats()
 

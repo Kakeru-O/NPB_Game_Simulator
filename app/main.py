@@ -20,7 +20,8 @@ def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Pla
     for player_name in lineup:
         player_stats = player_data[player_data["Player"] == player_name].iloc[0]
         probabilities = player_stats[PROB_COLS].tolist()
-        player = Player(name=player_name, probabilities=probabilities)
+        speed = player_stats["Speed"] # Speedカラムを読み込む
+        player = Player(name=player_name, probabilities=probabilities, speed=speed)
         players.append(player)
     return players
 
@@ -104,7 +105,7 @@ def main():
                                 log_df.loc[player_name, inning_col] = event_text
                             else:
                                 log_df.loc[player_name, inning_col] += f", {event_text}"
-                    st.dataframe(log_df.fillna("-"))
+                    st.dataframe(log_df.fillna("-"),use_container_width=True)
                 
                 # 選手個人の成績
                 st.header("打者成績")

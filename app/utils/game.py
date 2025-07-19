@@ -17,7 +17,7 @@ class BaseballGame:
         self.players = players # 初期打順
         self.current_lineup: deque[Player] = deque()
         self.score = 0
-        self.bases = np.zeros(3, dtype=int)  # [一塁, 二塁, 三塁]
+        self.bases: List[Player | None] = [None, None, None]  # [一塁, 二塁, 三塁] 各塁にいるPlayerオブジェクト、またはNone
         self.outs = 0
         self.game_log: List[List[Tuple[str, str, int]]] = [] # イニングごとの (選手名, 結果, 打点) のログ
         
@@ -25,36 +25,153 @@ class BaseballGame:
     def _reset_inning_state(self):
         """イニング開始時に状態をリセットする。"""
         self.outs = 0
-        self.bases = np.zeros(3, dtype=int)
+        self.bases = [None, None, None]
 
-    def advance_runners(self, batter_advances: int) -> int:
+    
+
+    def should_advance_extra_base(self, runner: Player, current_base_index: int, event_type: str)->bool:
+        """
+        ランナーが追加の塁に進むべきかを判定するヘルパー関数。
+        """
+        # ベース確率 (仮の値、調整が必要)
+        base_prob = 0.0 # デフォルトは進まない
+
+        if event_type == "single":
+            if current_base_index == 0: # 一塁走者が3塁へ
+                base_prob = 0.1
+            elif current_base_index == 1: # 二塁走者が本塁へ
+                base_prob = 0.1 # シングルヒットで二塁から本塁へ
+            
+        elif event_type == "double":
+            if current_base_index == 0: # 一塁走者が本塁へ
+                base_prob = 0.1
+        
+        # Speedによる調整 (仮の値、調整が必要)
+        # Speedが正の値なら確率増加、負の値なら確率減少
+        speed_factor = 0.02 # Speed 1につき2%変化
+        adjusted_prob = base_prob + (runner.speed * speed_factor)
+
+        # アウトカウントによる調整 (仮の値、調整が必要)
+        if self.outs == 0:
+            adjusted_prob *= 0.9 # 0アウトではやや慎重
+        elif self.outs == 2:
+            adjusted_prob *= 1.1 # 2アウトでは積極的に
+
+        # 確率のクランプ
+        adjusted_prob = max(0.0, min(1.0, adjusted_prob))
+
+        return np.random.rand() < adjusted_prob
+
+
+
+    def advance_runners(self, batter: Player, event_type: str) -> int:
         """
         走者を進塁させ、得点を計算する。
-        打者自身もこのメソッド内で進塁処理される。
-
         Args:
-            batter_advances (int): 打者が進む塁の数 (例: single=1, homerun=4, walk=1)。
-
+            batter (Player): 打者オブジェクト。
+            event_type (str): 打席結果のイベントタイプ。
         Returns:
             int: このプレーで発生した得点。
         """
         runs_scored = 0
+        new_bases: List[Player | None] = [None, None, None] # 新しい塁の状態
 
-        # 塁上の走者を進める (三塁から順に処理)
-        for i in range(2, -1, -1): # i = 2 (三塁), 1 (二塁), 0 (一塁)
-            if self.bases[i] == 1: # その塁に走者がいる場合
-                self.bases[i] = 0 # 元の塁から走者を動かす
-                new_base_index = i + batter_advances
-                if new_base_index >= 3: # 本塁生還
+        # 走者の移動を処理
+        # 三塁走者から順に処理することで、進塁による衝突を防ぐ
+        # 四死球の場合の特殊処理
+        if event_type == "walk":
+            # # 満塁の場合、三塁走者が本塁生還
+            # if self.bases[0] is not None and self.bases[1] is not None and self.bases[2] is not None:
+            #     runs_scored += 1
+            
+            # # 塁上の走者を一つずつ進める
+            # if self.bases[1] is not None: # 二塁走者が三塁へ
+            #     new_bases[2] = self.bases[1]
+            # if self.bases[0] is not None: # 一塁走者が二塁へ
+            #     new_bases[1] = self.bases[0]
+            # new_bases[0] = batter # 打者が一塁へ
+            if self.bases[2] is not None:
+                if self.bases[1] is not None: 
+                    if self.bases[0] is not None:# 満塁
+                        runs_scored += 1
+                        new_bases[2] = self.bases[1]
+                        new_bases[1] = self.bases[0]
+                    # 2,3塁はそのまま
+                elif self.bases[0] is not None:# 1,3塁
+                    new_bases[1] = self.bases[0]
+
+            else:
+                if self.bases[1] is not None:
+                    if self.bases[0] is not None:# 1,2塁
+                        new_bases[2] = self.bases[1]
+                        new_bases[1] = self.bases[0]
+                        
+                else:
+                    if self.bases[0] is not None:#1塁
+                        new_bases[1] = self.bases[0]
+                        
+            new_bases[0] = batter # 打者が一塁へ
+
+
+        elif event_type == "homerun":
+            runs_scored += 1 # 打者自身の得点
+            # 塁上の走者も全て本塁生還
+            for i in range(3):
+                if self.bases[i] is not None:
+                    runs_scored += 1
+            self.bases = [None, None, None]  # 全ての走者が帰還するため塁は空になる
+            return runs_scored  # この分岐では早期リターン
+
+        elif event_type == '3B':
+            # All runners score
+            for i in range(0, 3):
+                if self.bases[i] is not None:
+                    runs_scored += 1
+                    self.bases[i] = None
+            # Batter to 3rd
+            new_bases[2] = batter
+        
+        elif event_type == '2B':
+            # 3rd, 2nd base runners score
+            if self.bases[2] is not None: runs_scored += 1
+            if self.bases[1] is not None: runs_scored += 1
+            self.bases[2] = None
+            self.bases[1] = None
+            new_bases[2] = None
+            new_bases[1] = None
+            # 1st base runner
+            if self.bases[0]is not None:
+                if self.should_advance_extra_base(self.bases[0], 0, event_type):
                     runs_scored += 1
                 else:
-                    self.bases[new_base_index] = 1 # 新しい塁へ
+                    new_bases[2] = self.bases[0]
+                new_bases[0] = None
+            # Batter to 2nd
+            new_bases[1] = batter
 
-        # 打者を進める
-        if batter_advances == 4: # ホームラン
-            runs_scored += 1
-        elif batter_advances > 0: # ホームラン以外の安打または四球
-            self.bases[batter_advances - 1] = 1 # 打者を新しい塁へ (0-indexed)
+        else:
+            # 3rd base runners score
+            if self.bases[2] is not None: runs_scored += 1
+            self.bases[2] = None
+            new_bases[2] = None
+            if self.bases[1] is not None:
+                if self.should_advance_extra_base(self.bases[1], 1, event_type):
+                    runs_scored += 1
+                else:
+                    new_bases[2] = self.bases[1]
+            self.bases[1] = None
+            new_bases[1] = None
+            if self.bases[0] is not None:
+                if self.should_advance_extra_base(self.bases[0], 0, event_type):
+                    new_bases[2] = self.bases[0]
+                else:
+                    new_bases[1] = self.bases[0]
+                new_bases[0] = None
+            # Batter to 1st
+            new_bases[0] = batter
+                
+            
+        self.bases = new_bases
         
         return runs_scored
 
@@ -79,7 +196,7 @@ class BaseballGame:
             if event_details["is_out"]:
                 self.outs += 1
             else:
-                runs = self.advance_runners(bases_to_advance)
+                runs = self.advance_runners(current_player, event_type)
                 self.score += runs
                 current_player.stats["runs_batted_in"] += runs
 
@@ -108,4 +225,9 @@ class BaseballGame:
 
         for _ in range(num_innings):
             self.play_inning()
+        
+        # simulate_gameの最後にoutsとbasesをリセット
+        self.outs = 0
+        self.bases = [None, None, None]
+
         return self.score, self.game_log
