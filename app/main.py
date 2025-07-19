@@ -3,7 +3,7 @@ import pandas as pd
 from utils.load_data import load_data_from_csv, load_default_lineups
 from utils.player import Player
 from utils.game import BaseballGame
-from utils.simulator import display_player_stats
+from utils.simulator import display_player_stats, find_best_and_worst_lineups, simulate_season
 
 TEAM_NAME_TO_ABBR = {
     "阪神": "t", "広島": "c", "DeNA": "db", "巨人": "g", "ヤクルト": "s", "中日": "d",
@@ -25,6 +25,10 @@ def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Pla
     return players
 
 def main():
+    # セッションステートの初期化
+    if "lineup_for_exploration" not in st.session_state:
+        st.session_state.lineup_for_exploration = []
+
     st.title("NPB Game Simulator")
 
     # サイドバー
@@ -72,6 +76,9 @@ def main():
                 default_index = player_names.index(default_player) if default_player in player_names else 0
                 selected_player = st.selectbox(f"{i+1}番", player_names, key=f"player_{i}", index=default_index)
                 lineup.append(selected_player)
+            
+            # 探索モード用に選択された打順を保存
+            st.session_state.lineup_for_exploration = lineup
 
             if st.button("シミュレーション実行"):
                 # Playerオブジェクトのリストを作成
@@ -104,12 +111,71 @@ def main():
                 player_stats_df = display_player_stats(players)
                 st.dataframe(player_stats_df)
 
+                simulation_status_message = st.empty()
+                simulation_status_message.info("1年間のシミュレーションを開始します。少々お待ちください。")
+                total_score, season_player_stats_df = simulate_season(143, players)
+                avg_score = total_score / 143
+                simulation_status_message.empty() # 完了後にメッセージをクリア
+
+                st.metric("シーズン総得点", f"{total_score}点")
+                st.metric("1試合平均得点", f"{avg_score:.2f}点")
+                st.subheader("シーズン通算打者成績")
+                st.dataframe(season_player_stats_df)
+
         else:
             st.error("選手データを読み込めませんでした。")
 
     with tab2:
         st.header("最強打順を探索")
-        # ここに最強打順探索のUIを実装
+        st.write("ランダムな打順を生成し、143試合シミュレーションを複数回実行して、最も平均得点が高かった打順と低かった打順を探索します。")
+
+        num_trials = st.number_input("試行する打順の数", min_value=1, max_value=1000, value=100)
+
+        simulation_mode = st.radio(
+            "シミュレーションモード",
+            ("全選手からランダムに9名選んで探索", "任意打順で選択した9名の並び替えで探索"),
+            index=0
+        )
+
+        if st.button("探索開始"):
+            if player_data.empty:
+                st.error("選手データを読み込めませんでした。年度とチームを選択してください。")
+            else:
+                st.info(f"{num_trials}回のシミュレーションを開始します。時間がかかる場合があります。")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                if simulation_mode == "全選手からランダムに9名選んで探索":
+                    # 全選手データからPlayerオブジェクトのリストを作成
+                    all_players_list = []
+                    for _, row in player_data.iterrows():
+                        probabilities = row[PROB_COLS].tolist()
+                        all_players_list.append(Player(name=row["Player"], probabilities=probabilities))
+                    best_lineup, worst_lineup = find_best_and_worst_lineups(num_trials, all_players_list, progress_bar, status_text, shuffle_only=False)
+                else: # 任意打順で選択した9名の並び替えで探索
+                    if not st.session_state.lineup_for_exploration:
+                        st.error("任意打順タブで打順が選択されていません。先に任意打順タブで打順を設定してください。")
+                        return
+                    
+                    # 任意打順で選択された9名のPlayerオブジェクトのリストを作成
+                    selected_players_for_exploration = create_player_list(st.session_state.lineup_for_exploration, player_data)
+                    if len(selected_players_for_exploration) != 9:
+                        st.error("任意打順タブで9名の選手が選択されていません。")
+                        return
+                    best_lineup, worst_lineup = find_best_and_worst_lineups(num_trials, selected_players_for_exploration, progress_bar, status_text, shuffle_only=True)
+
+                st.success("探索が完了しました！")
+                status_text.empty() # 完了後にテキストをクリア
+
+                st.header("最高平均得点打順")
+                st.write(f"総得点: {best_lineup["total_score"]} (平均得点: {best_lineup["avg_score"]:.2f})")
+                st.write("打順:", ", ".join(best_lineup["lineup"]))
+                st.dataframe(best_lineup["player_stats"])
+
+                st.header("最低平均得点打順")
+                st.write(f"総得点: {worst_lineup["total_score"]} (平均得点: {worst_lineup["avg_score"]:.2f})")
+                st.write("打順:", ", ".join(worst_lineup["lineup"]))
+                st.dataframe(worst_lineup["player_stats"])
 
 if __name__ == "__main__":
     main()

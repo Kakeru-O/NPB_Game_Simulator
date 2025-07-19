@@ -1,6 +1,9 @@
+
+
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Tuple, Any
+import random
 
 from .player import Player
 from .game import BaseballGame
@@ -56,7 +59,7 @@ def load_players_from_csv(file_path: str, num_players: int = 9) -> List[Player]:
                      continue
 
             player = Player(name=row["Player"], probabilities=probabilities)
-            players.append(player)
+            players.append(player);
         except KeyError as e:
             print(f"Error: Missing column {e} for player {row.get('Player', 'Unknown')}. Skipping this player.")
         except ValueError as e:
@@ -159,3 +162,86 @@ def run_one_game_simulation(players_list: List[Player]):
     print("\n--- 選手の総合成績 ---")
     player_stats_df = display_player_stats(players_list)
     print(player_stats_df.to_string())
+
+def generate_random_lineup(players_pool: List[Player], shuffle_only: bool = False) -> List[Player]:
+    """
+    選手プールからランダムに9名を選び、ランダムな打順を生成する。
+    shuffle_onlyがTrueの場合、与えられたplayers_poolをシャッフルする。
+    """
+    if shuffle_only:
+        if len(players_pool) != 9:
+            raise ValueError("shuffle_onlyがTrueの場合、players_poolは9名の選手を含む必要があります。")
+        selected_players = list(players_pool) # コピーを作成して元のリストを変更しない
+    else:
+        if len(players_pool) < 9:
+            raise ValueError("選手数が9名未満のため、打順を生成できません。")
+        selected_players = random.sample(players_pool, 9)
+    
+    random.shuffle(selected_players)
+    
+    return selected_players
+
+def find_best_and_worst_lineups(num_trials: int, players_for_exploration: List[Player], progress_bar=None, status_text=None, shuffle_only: bool = False) -> Tuple[Dict, Dict]:
+    """
+    指定された回数だけランダムな打順を生成し、シーズンシミュレーションを実行して、
+    最高得点と最低得点の打順を特定する。
+    """
+    best_lineup_info = {"avg_score": -1, "lineup": [], "player_stats": pd.DataFrame()}
+    worst_lineup_info = {"avg_score": float('inf'), "lineup": [], "player_stats": pd.DataFrame()}
+
+    # all_players_dataからPlayerオブジェクトのリストを一度作成
+    # all_players_list = []
+    # PROB_COLS = ["1B_ratio", "2B_ratio", "3B_ratio", "HR_ratio", "BB+HBP_ratio", "Out_ratio"]
+    # for _, row in all_players_data.iterrows():
+    #     probabilities = row[PROB_COLS].tolist()
+    #     all_players_list.append(Player(name=row["Player"], probabilities=probabilities))
+
+    for i in range(num_trials):
+        # ランダムな打順を生成
+        current_lineup_players = generate_random_lineup(players_for_exploration, shuffle_only=shuffle_only)
+        
+        # シーズンシミュレーションを実行
+        total_score, player_stats_df = simulate_season(143, current_lineup_players)
+        avg_score = total_score / 143
+
+        # 最高得点の打順を更新
+        if avg_score > best_lineup_info["avg_score"]:
+            best_lineup_info["avg_score"] = avg_score
+            best_lineup_info["total_score"] = total_score # 総得点も保存
+            best_lineup_info["lineup"] = [p.name for p in current_lineup_players]
+            best_lineup_info["player_stats"] = player_stats_df
+        
+        # 最低得点の打順を更新
+        if avg_score < worst_lineup_info["avg_score"]:
+            worst_lineup_info["avg_score"] = avg_score
+            worst_lineup_info["total_score"] = total_score # 総得点も保存
+            worst_lineup_info["lineup"] = [p.name for p in current_lineup_players]
+            worst_lineup_info["player_stats"] = player_stats_df
+
+        # 進捗を更新
+        if progress_bar and status_text:
+            progress_bar.progress((i + 1) / num_trials)
+            status_text.text(f"シミュレーション中: {i + 1}/{num_trials} パターン完了")
+            
+    return best_lineup_info, worst_lineup_info
+
+if __name__ == '__main__':
+    # 使用例
+    # 1. CSVから選手データを読み込む
+    file_path = '../../data/processed/2024_t.csv'
+    players = load_players_from_csv(file_path)
+
+    if players:
+        # 2. 1試合のシミュレーションを実行
+        print("--- 1試合シミュレーション ---")
+        run_one_game_simulation(players)
+
+        # 3. 143試合のシーズンシミュレーションを実行
+        print("\n\n--- 143試合シーズンシミュレーション ---")
+        num_season_games = 143
+        total_score, season_stats = simulate_season(num_season_games, players)
+        avg_score = total_score / num_season_games if num_season_games > 0 else 0
+        print(f"\nシーズン総得点: {total_score}")
+        print(f"平均得点: {avg_score:.2f}")
+        print("\nシーズン通算成績:")
+        print(season_stats.to_string())
