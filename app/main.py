@@ -12,7 +12,7 @@ TEAM_NAME_TO_ABBR = {
 
 CENTRAL_LEAGUE_TEAMS = ["阪神", "広島", "DeNA", "巨人", "ヤクルト", "中日"]
 
-PROB_COLS = ["1B_ratio", "2B_ratio", "3B_ratio", "HR_ratio", "BB+HBP_ratio", "Out_ratio"]
+PROB_COLS = ["1B_ratio", "2B_ratio", "3B_ratio", "HR_ratio", "BB+HBP_ratio", "SO_ratio", "Ground_Out_ratio", "Fly_Out_ratio"]
 
 def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Player]:
     """選択された打順と選手データからPlayerオブジェクトのリストを作成する"""
