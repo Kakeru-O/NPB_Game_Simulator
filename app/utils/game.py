@@ -119,7 +119,7 @@ class BaseballGame:
             for i in range(3):
                 if self.bases[i] is not None:
                     runs_scored += 1
-            self.bases = [None, None, None]  # 全ての走者が帰還するため塁は空になる
+            new_bases = [None, None, None]  # 全ての走者が帰還するため塁は空になる
             return runs_scored  # この分岐では早期リターン
 
         elif event_type == '3B':
@@ -133,12 +133,14 @@ class BaseballGame:
         
         elif event_type == '2B':
             # 3rd, 2nd base runners score
-            if self.bases[2] is not None: runs_scored += 1
-            if self.bases[1] is not None: runs_scored += 1
-            self.bases[2] = None
-            self.bases[1] = None
-            new_bases[2] = None
-            new_bases[1] = None
+            if self.bases[2] is not None: 
+                runs_scored += 1
+                self.bases[2] = None
+                new_bases[2] = None
+            if self.bases[1] is not None: 
+                runs_scored += 1
+                self.bases[1] = None
+                new_bases[1] = None
             # 1st base runner
             if self.bases[0]is not None:
                 if self.should_advance_extra_base(self.bases[0], 0, event_type):
@@ -151,18 +153,20 @@ class BaseballGame:
 
         else:
             # 3rd base runners score
-            if self.bases[2] is not None: runs_scored += 1
-            self.bases[2] = None
-            new_bases[2] = None
+            if self.bases[2] is not None: 
+                runs_scored += 1
+                self.bases[2] = None
+                new_bases[2] = None
             if self.bases[1] is not None:
                 if self.should_advance_extra_base(self.bases[1], 1, event_type):
                     runs_scored += 1
+                    self.bases[1] = None
+                    new_bases[1] = None
                 else:
                     new_bases[2] = self.bases[1]
-            self.bases[1] = None
-            new_bases[1] = None
+            
             if self.bases[0] is not None:
-                if self.should_advance_extra_base(self.bases[0], 0, event_type):
+                if new_bases[2] is None and self.should_advance_extra_base(self.bases[0], 0, event_type):
                     new_bases[2] = self.bases[0]
                 else:
                     new_bases[1] = self.bases[0]

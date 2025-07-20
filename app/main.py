@@ -18,7 +18,12 @@ def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Pla
     """選択された打順と選手データからPlayerオブジェクトのリストを作成する"""
     players = []
     for player_name in lineup:
-        player_stats = player_data[player_data["Player"] == player_name].iloc[0]
+        # 投手データの場合
+        if player_name == "投手":
+            from utils.constants import PITCHER_STATS
+            player_stats = pd.Series(PITCHER_STATS)
+        else:
+            player_stats = player_data[player_data["Player"] == player_name].iloc[0]
         probabilities = player_stats[PROB_COLS].tolist()
         speed = player_stats["Speed"] # Speedカラムを読み込む
         player = Player(name=player_name, probabilities=probabilities, speed=speed)
@@ -36,6 +41,7 @@ def main():
     st.sidebar.header("設定")
     year = st.sidebar.selectbox("年度", [2024, 2023, 2022])
     team_name = st.sidebar.selectbox("チーム", list(TEAM_NAME_TO_ABBR.keys()))
+    use_dh = st.sidebar.checkbox("DH制を使用する", value=True) # デフォルトはDH制あり
 
     # 選択されたチームの略称を取得
     team_abbr = TEAM_NAME_TO_ABBR[team_name]
@@ -57,6 +63,15 @@ def main():
             st.header("打順設定")
             player_names = player_data["Player"].tolist()
             
+            # DH制がオフの場合、投手を追加
+            if not use_dh:
+                from utils.constants import PITCHER_STATS
+                pitcher_name = PITCHER_STATS["Player"]
+                player_names.append(pitcher_name)
+                # 投手データをplayer_dataに追加（一時的に）
+                pitcher_df = pd.DataFrame([PITCHER_STATS])
+                player_data = pd.concat([player_data, pitcher_df], ignore_index=True)
+
             # デフォルトスタメンを取得
             default_lineup_names = []
             if not default_lineup_df.empty:
@@ -64,8 +79,11 @@ def main():
                 if not team_lineup.empty:
                     default_lineup_names = team_lineup['Player'].tolist()
 
-            # セ・リーグで8人しかいない場合、9人目を追加
-            if team_name in CENTRAL_LEAGUE_TEAMS and len(default_lineup_names) == 8:
+            # DH制オフでデフォルト打順が8人の場合、投手を9人目として追加
+            if not use_dh and len(default_lineup_names) == 8:
+                default_lineup_names.append(pitcher_name)
+            # DH制オンでセ・リーグで8人しかいない場合、9人目を追加
+            elif use_dh and team_name in CENTRAL_LEAGUE_TEAMS and len(default_lineup_names) == 8:
                 for p_name in player_names:
                     if p_name not in default_lineup_names:
                         default_lineup_names.append(p_name)
