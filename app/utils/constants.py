@@ -20,7 +20,7 @@ EVENT_CONFIG: Dict[str, Dict[str, Any]] = {
 STAT_KEYS: List[str] = [
     "hits", "at_bats", "walks", "plate_appearances", "runs_batted_in",
     "singles", "doubles", "triples", "homeruns", "slugging_points",
-    "strikeouts", "double_plays", "sacrifice_bunts", "ground_out_advances", "bunt_fails"
+    "strikeouts", "double_plays", "sacrifice_bunts", "ground_out_advances", "bunt_fails", "sacrifice_flies"
 ]
 
 # 投手（架空の選手）の打撃成績の仮の値
@@ -42,3 +42,4 @@ BUNT_ATTEMPT_FACTOR = 0.1 # 犠打試行確率の係数
 SACRIFICE_BUNT_SUCCESS_RATE = 0.8 # 犠打成功率
 DOUBLE_PLAY_PROBABILITY = 0.4 # 併殺打確率
 GROUND_OUT_ADVANCE_PROBABILITY = 0.3 # 進塁打確率
+SACRIFICE_FLY_PROBABILITY = 0.5 # 犠飛確率

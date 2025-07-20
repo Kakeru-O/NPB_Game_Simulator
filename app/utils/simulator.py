@@ -99,6 +99,7 @@ def display_player_stats(players: List[Player]) -> pd.DataFrame:
             "犠打": player._get_stat("sacrifice_bunts"),
             "進塁打": player._get_stat("ground_out_advances"),
             "犠打失敗": player._get_stat("bunt_fails"),
+            "犠飛": player._get_stat("sacrifice_flies"),
         })
     return pd.DataFrame(stats_list)
 

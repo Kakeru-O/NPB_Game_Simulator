@@ -4,7 +4,7 @@ import numpy as np
 from collections import deque
 from typing import List, Tuple, Any
 
-from .constants import EVENT_CONFIG, EVENT_TYPES, BUNT_ATTEMPT_FACTOR, SACRIFICE_BUNT_SUCCESS_RATE, DOUBLE_PLAY_PROBABILITY, GROUND_OUT_ADVANCE_PROBABILITY
+from .constants import EVENT_CONFIG, EVENT_TYPES, BUNT_ATTEMPT_FACTOR, SACRIFICE_BUNT_SUCCESS_RATE, DOUBLE_PLAY_PROBABILITY, GROUND_OUT_ADVANCE_PROBABILITY, SACRIFICE_FLY_PROBABILITY
 from .player import Player
 
 class BaseballGame:
@@ -122,8 +122,8 @@ class BaseballGame:
                         
             new_bases[0] = batter # 打者が一塁へ
 
-        elif event_type == "sacrifice_bunt" or event_type == "ground_out_advance":
-            # 犠打成功または進塁打の場合、ランナーを進める
+        elif event_type == "sacrifice_bunt" or event_type == "ground_out_advance" or event_type == "sacrifice_fly":
+            # 犠打成功または進塁打または犠飛の場合、ランナーを進める
             if self.bases[2] is not None: # 三塁ランナーはホームへ
                 runs_scored += 1
             new_bases[2] = self.bases[1] # 二塁ランナーは三塁へ
@@ -214,6 +214,7 @@ class BaseballGame:
 
             # 犠打の試行判定
             if self.should_attempt_bunt(current_player, self.outs, self.bases):
+                current_player.stats["plate_appearances"] += 1 # 犠打は打席数にカウント
                 event_type = self.simulate_bunt()
                 if event_type == "sacrifice_bunt":
                     self.outs += 1
@@ -250,7 +251,17 @@ class BaseballGame:
                     self.outs += 1
                     current_player.stats["strikeouts"] += 1
                 elif event_type == "fly_out": # Other outs
-                    self.outs += 1
+                    # 犠飛の判定 (3塁にランナーがいる場合)
+                    if self.bases[2] is not None and self.outs < 2 and np.random.rand() < SACRIFICE_FLY_PROBABILITY: # 犠飛確率0.5 (仮)
+                        event_type = "sacrifice_fly"
+                        self.outs += 1
+                        runs = self.advance_runners(current_player, event_type) # Advance runners for sacrifice fly
+                        self.score += runs
+                        current_player.stats["runs_batted_in"] += runs
+                        current_player.stats["sacrifice_flies"] += 1
+                        current_player.stats["at_bats"] -= 1 # 犠飛は打数にカウントしない
+                    else:
+                        self.outs += 1
                 else: # Not an out (single, double, triple, homerun, walk)
                     runs = self.advance_runners(current_player, event_type)
                     self.score += runs
