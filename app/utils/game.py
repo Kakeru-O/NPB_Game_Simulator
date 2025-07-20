@@ -220,8 +220,10 @@ class BaseballGame:
                     runs = self.advance_runners(current_player, event_type) # Advance runners for sacrifice bunt
                     self.score += runs
                     current_player.stats["runs_batted_in"] += runs
+                    current_player.stats["sacrifice_bunts"] += 1
                 else: # bunt_fail
                     self.outs += 1
+                    current_player.stats["bunt_fails"] += 1
             else:
                 # 通常の打席シミュレーション
                 event_type, _ = current_player.simulate_at_bat() # bases_to_advance is handled by advance_runners
@@ -233,6 +235,7 @@ class BaseballGame:
                         self.outs += 2 # Double play is 2 outs
                         if self.bases[0] is not None: # Runner on first is out
                             self.bases[0] = None
+                        current_player.stats["double_plays"] += 1
                     # 進塁打の判定 (併殺打にならず、ランナーが進塁可能な場合)
                     elif any(self.bases) and np.random.rand() < GROUND_OUT_ADVANCE_PROBABILITY: # 進塁打確率0.3 (仮)
                         event_type = "ground_out_advance"
@@ -240,9 +243,13 @@ class BaseballGame:
                         runs = self.advance_runners(current_player, event_type) # Advance runners for ground_out_advance
                         self.score += runs
                         current_player.stats["runs_batted_in"] += runs
+                        current_player.stats["ground_out_advances"] += 1
                     else: # Regular ground out
                         self.outs += 1
-                elif event_type in ["strikeout", "fly_out"]: # Other outs
+                elif event_type == "strikeout": # Other outs
+                    self.outs += 1
+                    current_player.stats["strikeouts"] += 1
+                elif event_type == "fly_out": # Other outs
                     self.outs += 1
                 else: # Not an out (single, double, triple, homerun, walk)
                     runs = self.advance_runners(current_player, event_type)

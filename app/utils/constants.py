@@ -19,7 +19,8 @@ EVENT_CONFIG: Dict[str, Dict[str, Any]] = {
 
 STAT_KEYS: List[str] = [
     "hits", "at_bats", "walks", "plate_appearances", "runs_batted_in",
-    "singles", "doubles", "triples", "homeruns", "slugging_points"
+    "singles", "doubles", "triples", "homeruns", "slugging_points",
+    "strikeouts", "double_plays", "sacrifice_bunts", "ground_out_advances", "bunt_fails"
 ]
 
 # 投手（架空の選手）の打撃成績の仮の値

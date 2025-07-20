@@ -94,6 +94,11 @@ def display_player_stats(players: List[Player]) -> pd.DataFrame:
             "出塁率": round(player.on_base_percentage(), 3),
             "長打率": round(player.slugging_percentage(), 3),
             "OPS": round(player.ops(), 3),
+            "三振": player._get_stat("strikeouts"),
+            "併殺打": player._get_stat("double_plays"),
+            "犠打": player._get_stat("sacrifice_bunts"),
+            "進塁打": player._get_stat("ground_out_advances"),
+            "犠打失敗": player._get_stat("bunt_fails"),
         })
     return pd.DataFrame(stats_list)
 
