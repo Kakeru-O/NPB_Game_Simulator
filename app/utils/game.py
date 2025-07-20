@@ -4,7 +4,7 @@ import numpy as np
 from collections import deque
 from typing import List, Tuple, Any
 
-from .constants import EVENT_CONFIG
+from .constants import EVENT_CONFIG, EVENT_TYPES, BUNT_ATTEMPT_FACTOR, SACRIFICE_BUNT_SUCCESS_RATE, DOUBLE_PLAY_PROBABILITY, GROUND_OUT_ADVANCE_PROBABILITY
 from .player import Player
 
 class BaseballGame:
@@ -26,6 +26,26 @@ class BaseballGame:
         """イニング開始時に状態をリセットする。"""
         self.outs = 0
         self.bases = [None, None, None]
+
+    def should_attempt_bunt(self, player_stats, outs, runners_on_base):
+        """犠打を試みるべきか判断する"""
+        # 0アウトまたは1アウトで、得点圏にランナーがいる、または1塁にランナーがいる
+        is_bunt_situation = outs < 2 and (runners_on_base[1] is not None or runners_on_base[0] is not None)
+        if not is_bunt_situation:
+            return False
+        
+        # アウトになりやすい選手ほどバントを試行しやすくする
+        # Out_ratioが高いほど、試行確率が上がる線形的な確率
+        # player_statsはPlayerオブジェクトではなく、player_dataの行（Series）を想定
+        # ここではPlayerオブジェクトからOut_ratioを取得するように修正
+        out_ratio = player_stats.probabilities[EVENT_TYPES.index("strikeout")] + player_stats.probabilities[EVENT_TYPES.index("ground_out")] + player_stats.probabilities[EVENT_TYPES.index("fly_out")]
+        bunt_probability = out_ratio * BUNT_ATTEMPT_FACTOR # 係数は調整可能
+        return np.random.rand() < bunt_probability
+
+    def simulate_bunt(self):
+        """犠打の成否をシミュレートする"""
+        # 成功率は固定値 (例: 80%)
+        return 'sacrifice_bunt' if np.random.rand() < SACRIFICE_BUNT_SUCCESS_RATE else 'bunt_fail'
 
     
 
@@ -80,16 +100,6 @@ class BaseballGame:
         # 三塁走者から順に処理することで、進塁による衝突を防ぐ
         # 四死球の場合の特殊処理
         if event_type == "walk":
-            # # 満塁の場合、三塁走者が本塁生還
-            # if self.bases[0] is not None and self.bases[1] is not None and self.bases[2] is not None:
-            #     runs_scored += 1
-            
-            # # 塁上の走者を一つずつ進める
-            # if self.bases[1] is not None: # 二塁走者が三塁へ
-            #     new_bases[2] = self.bases[1]
-            # if self.bases[0] is not None: # 一塁走者が二塁へ
-            #     new_bases[1] = self.bases[0]
-            # new_bases[0] = batter # 打者が一塁へ
             if self.bases[2] is not None:
                 if self.bases[1] is not None: 
                     if self.bases[0] is not None:# 満塁
@@ -112,6 +122,13 @@ class BaseballGame:
                         
             new_bases[0] = batter # 打者が一塁へ
 
+        elif event_type == "sacrifice_bunt" or event_type == "ground_out_advance":
+            # 犠打成功または進塁打の場合、ランナーを進める
+            if self.bases[2] is not None: # 三塁ランナーはホームへ
+                runs_scored += 1
+            new_bases[2] = self.bases[1] # 二塁ランナーは三塁へ
+            new_bases[1] = self.bases[0] # 一塁ランナーは二塁へ
+            # 打者はアウトなので塁には残らない
 
         elif event_type == "homerun":
             runs_scored += 1 # 打者自身の得点
@@ -193,17 +210,44 @@ class BaseballGame:
                 break 
             
             current_player = self.current_lineup.popleft()
-            event_type, bases_to_advance = current_player.simulate_at_bat()
-            
-            event_details = EVENT_CONFIG[event_type]
-            runs = 0
-            if event_details["is_out"]:
-                self.outs += 1
-            else:
-                runs = self.advance_runners(current_player, event_type)
-                self.score += runs
-                current_player.stats["runs_batted_in"] += runs
+            runs = 0 # Initialize runs for this plate appearance
 
+            # 犠打の試行判定
+            if self.should_attempt_bunt(current_player, self.outs, self.bases):
+                event_type = self.simulate_bunt()
+                if event_type == "sacrifice_bunt":
+                    self.outs += 1
+                    runs = self.advance_runners(current_player, event_type) # Advance runners for sacrifice bunt
+                    self.score += runs
+                    current_player.stats["runs_batted_in"] += runs
+                else: # bunt_fail
+                    self.outs += 1
+            else:
+                # 通常の打席シミュレーション
+                event_type, _ = current_player.simulate_at_bat() # bases_to_advance is handled by advance_runners
+                
+                if event_type == "ground_out":
+                    # 併殺打の判定 (1塁にランナーがいる場合)
+                    if self.bases[0] is not None and self.outs < 2 and np.random.rand() < DOUBLE_PLAY_PROBABILITY: # 併殺確率0.4 (仮)
+                        event_type = "double_play"
+                        self.outs += 2 # Double play is 2 outs
+                        if self.bases[0] is not None: # Runner on first is out
+                            self.bases[0] = None
+                    # 進塁打の判定 (併殺打にならず、ランナーが進塁可能な場合)
+                    elif any(self.bases) and np.random.rand() < GROUND_OUT_ADVANCE_PROBABILITY: # 進塁打確率0.3 (仮)
+                        event_type = "ground_out_advance"
+                        self.outs += 1
+                        runs = self.advance_runners(current_player, event_type) # Advance runners for ground_out_advance
+                        self.score += runs
+                        current_player.stats["runs_batted_in"] += runs
+                    else: # Regular ground out
+                        self.outs += 1
+                elif event_type in ["strikeout", "fly_out"]: # Other outs
+                    self.outs += 1
+                else: # Not an out (single, double, triple, homerun, walk)
+                    runs = self.advance_runners(current_player, event_type)
+                    self.score += runs
+                    current_player.stats["runs_batted_in"] += runs
 
             inning_log.append((current_player.name, event_type, runs))
 

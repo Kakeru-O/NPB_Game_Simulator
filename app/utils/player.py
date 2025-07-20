@@ -13,7 +13,7 @@ class Player:
         Args:
             name (str): 選手名。
             probabilities (List[float]): 打席結果の確率のリスト。
-                [single, double, triple, homerun, walk, out] の順。
+                [single, double, triple, homerun, walk, strikeout, ground_out, fly_out] の順。
         """
         if len(probabilities) != len(EVENT_TYPES):
             raise ValueError(f"Probabilities list must have {len(EVENT_TYPES)} elements, corresponding to {EVENT_TYPES}")
