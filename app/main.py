@@ -85,7 +85,7 @@ def main():
             # DH制オンでセ・リーグで8人しかいない場合、9人目を追加
             elif use_dh and team_name in CENTRAL_LEAGUE_TEAMS and len(default_lineup_names) == 8:
                 for p_name in player_names:
-                    if p_name not in default_lineup_names and p_name != pitcher_name:
+                    if p_name not in default_lineup_names:
                         default_lineup_names.append(p_name)
                         break
 
