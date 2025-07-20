@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
-from utils.load_data import load_data_from_csv, load_default_lineups
-from utils.player import Player
-from utils.game import BaseballGame
-from utils.simulator import display_player_stats, find_best_and_worst_lineups, simulate_season
+from app.utils.load_data import load_data_from_csv, load_default_lineups
+from app.utils.player import Player
+from app.utils.game import BaseballGame
+from app.utils.simulator import display_player_stats, find_best_and_worst_lineups, simulate_season
+from app.utils.constants import PITCHER_STATS, TEAM_COLORS
 
 TEAM_NAME_TO_ABBR = {
     "阪神": "t", "広島": "c", "DeNA": "db", "巨人": "g", "ヤクルト": "s", "中日": "d",
@@ -20,7 +21,6 @@ def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Pla
     for player_name in lineup:
         # 投手データの場合
         if player_name == "投手":
-            from utils.constants import PITCHER_STATS
             player_stats = pd.Series(PITCHER_STATS)
         else:
             player_stats = player_data[player_data["Player"] == player_name].iloc[0]
@@ -35,21 +35,77 @@ def main():
     if "lineup_for_exploration" not in st.session_state:
         st.session_state.lineup_for_exploration = []
 
+    st.set_page_config(layout="wide")
     st.title("NPB Game Simulator")
 
     # サイドバー
     st.sidebar.header("設定")
     year = st.sidebar.selectbox("年度", [2024, 2023, 2022])
-    team_name = st.sidebar.selectbox("チーム", list(TEAM_NAME_TO_ABBR.keys()))
+    
+    # チーム選択
+    st.sidebar.subheader("チーム選択")
+    teams = list(TEAM_NAME_TO_ABBR.keys())
+    
+    # セッションステートで選択中のチームを管理
+    if "selected_team" not in st.session_state:
+        st.session_state.selected_team = teams[0] # デフォルトは最初のチーム
+
+    # st.pills を使用してチーム選択を実装
+    selected_team_pills = st.sidebar.pills(
+        "",
+        options=teams,
+        default=st.session_state.selected_team, # indexの代わりにdefaultを使用
+        key="team_pills",
+        label_visibility="collapsed",
+    )
+
+    if selected_team_pills != st.session_state.selected_team:
+        st.session_state.selected_team = selected_team_pills
+        st.rerun()
+    
+    team_name = st.session_state.selected_team
     use_dh = st.sidebar.checkbox("DH制を使用する", value=True) # デフォルトはDH制あり
 
     # 選択されたチームの略称を取得
     team_abbr = TEAM_NAME_TO_ABBR[team_name]
 
+    # チームカラーの取得
+    selected_team_colors = TEAM_COLORS.get(team_abbr, {"main": "#000000", "accent": "#FFFFFF"}) # デフォルトは黒
+
+    # カスタムCSSでヘッダーとボタンの色を変更
+    st.html(f"""
+        <style>
+        .st-emotion-cache-l9rwz9 {{ /* st.headerのクラス名 */
+            color: {selected_team_colors["main"]};
+        }}
+        /* st.pillsのスタイルを調整 */
+        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label {{ /* st.pillsの各ラベル */
+            background-color: {selected_team_colors["main"]};
+            color: {selected_team_colors["accent"]};
+            border-radius: 8px;
+            border: 1px solid {selected_team_colors["main"]};
+            margin: 5px; /* ボタン間のスペース */
+            padding: 10px 15px;
+            font-weight: bold;
+            transition: all 0.2s ease-in-out;
+        }}
+        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label:hover {{ /* ホバー時のスタイル */
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }}
+        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label[data-testid="stPills-option-active"] {{ /* 選択中のピル */
+            background-color: {selected_team_colors["accent"]};
+            color: {selected_team_colors["main"]};
+            border: 2px solid {selected_team_colors["main"]};
+        }}
+        </style>
+        """)#, unsafe_allow_html=True)
+
     # 選手データの読み込み
     player_data = load_data_from_csv(year, team_abbr)
     default_lineup_df = load_default_lineups(year)
-
+    player_data_display = load_data_from_csv(year,team_abbr,base_path="./data/raw")
+    player_data_display = player_data_display[player_data_display['打席']>=50].reset_index(drop=True)
     # メインコンテンツ
     tab1, tab2 = st.tabs(["任意打順でシミュレーション", "最強打順を探索"])
 
@@ -58,7 +114,7 @@ def main():
         
         if not player_data.empty:
             st.write(f"{year}年 {team_name}の選手データ")
-            st.dataframe(player_data)
+            st.dataframe(player_data_display)
 
             st.header("打順設定")
             player_names = player_data["Player"].tolist()
