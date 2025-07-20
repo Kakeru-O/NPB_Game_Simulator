@@ -34,7 +34,7 @@ def load_players_from_csv(file_path: str, num_players: int = 9) -> List[Player]:
         return []
 
     players = []
-    expected_cols = ["Player", "1B_ratio", "2B_ratio", "3B_ratio", "HR_ratio", "BB+HBP_ratio", "Out_ratio"]
+    expected_cols = ["Player", "1B_ratio", "2B_ratio", "3B_ratio", "HR_ratio", "BB+HBP_ratio", "Out_ratio", "Speed"]
     if not all(col in data.columns for col in expected_cols):
         print(f"Error: CSV file must contain columns: {expected_cols}")
         return []
@@ -49,6 +49,7 @@ def load_players_from_csv(file_path: str, num_players: int = 9) -> List[Player]:
                 row["BB+HBP_ratio"],# walk (四球+死球)
                 row["Out_ratio"]    # out
             ]
+            speed = row["Speed"] # Speedカラムを読み込む
             # 確率の合計が1になるかチェック (小さな誤差は許容)
             if not np.isclose(sum(probabilities), 1.0, atol=0.01): # atolで許容誤差を設定
                  print(f"Warning: Probabilities for player {row['Player']} do not sum to 1 (sum={sum(probabilities)}). Adjusting Out_ratio.")
@@ -58,8 +59,8 @@ def load_players_from_csv(file_path: str, num_players: int = 9) -> List[Player]:
                      print(f"Error: Cannot normalize probabilities for player {row['Player']}. Skipping.")
                      continue
 
-            player = Player(name=row["Player"], probabilities=probabilities)
-            players.append(player);
+            player = Player(name=row["Player"], probabilities=probabilities, speed=speed)
+            players.append(player)
         except KeyError as e:
             print(f"Error: Missing column {e} for player {row.get('Player', 'Unknown')}. Skipping this player.")
         except ValueError as e:
