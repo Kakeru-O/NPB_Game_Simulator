@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 from app.utils.load_data import load_data_from_csv, load_default_lineups
 from app.utils.player import Player
 from app.utils.game import BaseballGame
@@ -64,7 +65,14 @@ def main():
         st.rerun()
     
     team_name = st.session_state.selected_team
-    use_dh = st.sidebar.checkbox("DH制を使用する", value=True) # デフォルトはDH制あり
+    # セッションステートでDH制の状態を管理
+    if "use_dh" not in st.session_state:
+        st.session_state.use_dh = True # デフォルトはDH制あり
+
+    use_dh = st.sidebar.checkbox("DH制を使用する", value=st.session_state.use_dh, key="dh_checkbox")
+    if use_dh != st.session_state.use_dh:
+        st.session_state.use_dh = use_dh
+        st.rerun()
 
     # 選択されたチームの略称を取得
     team_abbr = TEAM_NAME_TO_ABBR[team_name]
@@ -75,31 +83,35 @@ def main():
     # カスタムCSSでヘッダーとボタンの色を変更
     st.html(f"""
         <style>
+        /* st.headerのクラス名 */
         .st-emotion-cache-l9rwz9 {{ /* st.headerのクラス名 */
             color: {selected_team_colors["main"]};
         }}
-        /* st.pillsのスタイルを調整 */
-        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label {{ /* st.pillsの各ラベル */
+
+        /* st.buttonのスタイル */
+        div[data-testid="stButton"] > button {{
             background-color: {selected_team_colors["main"]};
             color: {selected_team_colors["accent"]};
-            border-radius: 8px;
             border: 1px solid {selected_team_colors["main"]};
-            margin: 5px; /* ボタン間のスペース */
-            padding: 10px 15px;
+            border-radius: 8px;
+            padding: 10px 20px;
             font-weight: bold;
             transition: all 0.2s ease-in-out;
         }}
-        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label:hover {{ /* ホバー時のスタイル */
+        div[data-testid="stButton"] > button:hover {{
+            background-color: {selected_team_colors["accent"]};
+            color: {selected_team_colors["main"]};
+            border: 1px solid {selected_team_colors["main"]};
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }}
-        div[data-testid="stSidebarNav"] + div[data-testid="stVerticalBlock"] > div:nth-child(2) > div > div > div > label[data-testid="stPills-option-active"] {{ /* 選択中のピル */
-            background-color: {selected_team_colors["accent"]};
-            color: {selected_team_colors["main"]};
-            border: 2px solid {selected_team_colors["main"]};
+
+        /* st.progressのスタイル */
+        div[data-testid="stProgress"] > div > div {{
+            background-color: {selected_team_colors["main"]};
         }}
         </style>
-        """)#, unsafe_allow_html=True)
+        """)
 
     # 選手データの読み込み
     player_data = load_data_from_csv(year, team_abbr)
@@ -117,16 +129,13 @@ def main():
             st.dataframe(player_data_display)
 
             st.header("打順設定")
-            player_names = player_data["Player"].tolist()
-            
-            # DH制がオフの場合、投手を追加
+            # DH制がオフの場合、投手データをplayer_dataに追加
             if not use_dh:
-                from utils.constants import PITCHER_STATS
                 pitcher_name = PITCHER_STATS["Player"]
-                player_names.append(pitcher_name)
-                # 投手データをplayer_dataに追加（一時的に）
                 pitcher_df = pd.DataFrame([PITCHER_STATS])
                 player_data = pd.concat([player_data, pitcher_df], ignore_index=True)
+
+            player_names = player_data["Player"].tolist()
 
             # デフォルトスタメンを取得
             default_lineup_names = []
@@ -135,9 +144,13 @@ def main():
                 if not team_lineup.empty:
                     default_lineup_names = team_lineup['Player'].tolist()
 
-            # DH制オフでデフォルト打順が8人の場合、投手を9人目として追加
-            if not use_dh and len(default_lineup_names) == 8:
-                default_lineup_names.append(pitcher_name)
+            # DH制オフの場合、9番目を投手に設定
+            if not use_dh:
+                # デフォルト打順が9人未満の場合、9人になるまで適当な選手で埋める
+                while len(default_lineup_names) < 9:
+                    default_lineup_names.append(player_names[0]) # 最初の選手で埋める
+                # 9番目を投手に設定
+                default_lineup_names[8] = pitcher_name
             # DH制オンでセ・リーグで8人しかいない場合、9人目を追加
             elif use_dh and team_name in CENTRAL_LEAGUE_TEAMS and len(default_lineup_names) == 8:
                 for p_name in player_names:
@@ -201,14 +214,27 @@ def main():
             st.error("選手データを読み込めませんでした。")
 
     with tab2:
-        st.header("最強打順を探索")
+        st.header("最適打順を探索")
         st.write("ランダムな打順を生成し、143試合シミュレーションを複数回実行して、最も平均得点が高かった打順と低かった打順を探索します。")
 
         num_trials = st.number_input("試行する打順の数", min_value=1, max_value=1000, value=100)
 
+        # Calculate total available players for permutation
+        total_players_for_permutation = len(player_data)
+
+        # Calculate permutations for "全選手からランダムに9名選んで探索"
+        if total_players_for_permutation >= 9:
+            permutations_all_players = math.perm(total_players_for_permutation, 9)
+        else:
+            permutations_all_players = 0 # Not enough players
+
+        # Calculate factorial for "任意打順で選択した9名の並び替えで探索"
+        factorial_9 = math.factorial(9)
+
         simulation_mode = st.radio(
             "シミュレーションモード",
-            ("全選手からランダムに9名選んで探索", "任意打順で選択した9名の並び替えで探索"),
+            (f"全選手からランダムに9名選んで探索 ({permutations_all_players:,}通り)",
+             f"任意打順で選択した9名の並び替えで探索 ({factorial_9:,}通り)"),
             index=0
         )
 
