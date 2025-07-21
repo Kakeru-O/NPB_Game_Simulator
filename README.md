@@ -82,7 +82,7 @@ Streamlitの機能を活用し、インタラクティブで直感的な操作�
 
 本アプリケーションはStreamlit Cloudにデプロイされており、以下のURLから直接アクセスして利用することも可能です。
 
-[NPB Game Simulator on Streamlit Cloud](https://npbgamesimulator-gpuczxpycnrzbjc8x2d8.streamlit.app/)
+[NPB Game Simulator on Streamlit Cloud](https://npbgamesimulator-gpuczxpycyknrzbjc8x2d8.streamlit.app/)
 
 ## 使い方
 

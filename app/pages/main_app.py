@@ -104,7 +104,7 @@ def main():
     
     # セッションステートで選択中のチームを管理
     if "selected_team" not in st.session_state:
-        st.session_state.selected_team = teams[0] # デフォルトは最初のチーム
+        st.session_state.selected_team = teams[7] # デフォルトは最初のチーム
 
     # st.pills を使用してチーム選択を実装
     selected_team_pills = st.sidebar.pills(
