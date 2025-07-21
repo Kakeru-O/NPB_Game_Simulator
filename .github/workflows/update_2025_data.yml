@@ -1,0 +1,71 @@
+
+name: Update 2025 NPB Data
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # 毎週月曜日の3:00 (UTC) に実行 (日本時間の12:00)
+  workflow_dispatch: # 手動実行も可能にする
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check date
+        id: check_date
+        run: |
+          current_date=$(date -u +%Y%m%d)
+          end_date="20251006"
+          if [[ "$current_date" -gt "$end_date" ]]; then
+            echo "Today is after October 6, 2025. Halting execution."
+            echo "halt=true" >> $GITHUB_OUTPUT
+          else
+            echo "halt=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout repository
+        if: steps.check_date.outputs.halt == 'false'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check_date.outputs.halt == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        if: steps.check_date.outputs.halt == 'false'
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        if: steps.check_date.outputs.halt == 'false'
+        run: uv sync
+
+      - name: Get 2025 player data
+        if: steps.check_date.outputs.halt == 'false'
+        run: uv run python app/utils/get_player_data.py --year 2025
+
+      - name: Process 2025 player data
+        if: steps.check_date.outputs.halt == 'false'
+        run: uv run python app/utils/data_process.py --year 2025
+        
+      - name: Get 2025 default lineup
+        if: steps.check_date.outputs.halt == 'false'
+        run: uv run python app/utils/get_default_lineup.py --year 2025
+
+      - name: Commit and push if data changed
+        if: steps.check_date.outputs.halt == 'false'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/raw/2025/*
+          git add data/processed/2025/*
+          git add data/processed/default_lineups_2025.csv
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "feat: Update 2025 data (closes #14)"
+            git push
+          fi

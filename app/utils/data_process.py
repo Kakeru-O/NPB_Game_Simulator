@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import pandas as pd
 import numpy as np
@@ -87,7 +88,7 @@ def add_speed_score(year: str, team: str, raw_dir="./data/raw"):
         pd.DataFrame: 走力ポイントを追加した選手データ
     """
     # data/rawから元データを読み込む
-    raw_path = os.path.join(raw_dir, f"{year}_{team}.csv")
+    raw_path = os.path.join(raw_dir, f"{year}/{team}.csv")
     try:
         df = pd.read_csv(raw_path)
     except FileNotFoundError:
@@ -138,12 +139,11 @@ def process_data(df, team, year, output_dir="./data/processed"):
     df_merged['Speed'] = df_merged['Speed'].fillna(0)
 
     # 加工済みデータをCSVに保存
-    os.makedirs(output_dir, exist_ok=True)
-    processed_csv_path = os.path.join(output_dir, f"{year}_{team}.csv")
+    os.makedirs(os.path.join(output_dir, str(year)), exist_ok=True)
+    processed_csv_path = os.path.join(output_dir, str(year), f"{team}.csv")
     df_merged.to_csv(processed_csv_path, index=False)
 
     return df_merged
-
 
 
 def main(teams, year, raw_dir="./data/raw", processed_dir="./data/processed"):
@@ -152,7 +152,7 @@ def main(teams, year, raw_dir="./data/raw", processed_dir="./data/processed"):
         print(f"Processing: {year} {team}")
         # get_dataはWebから取ってくるので、テストでは使いにくい。ここではrawデータは既にある前提とする。
         # raw_df = get_data(team, year)
-        raw_path = os.path.join(raw_dir, f"{year}_{team}.csv")
+        raw_path = os.path.join(raw_dir, f"{year}/{team}.csv")
         try:
             raw_df = pd.read_csv(raw_path)
         except FileNotFoundError:
@@ -162,7 +162,7 @@ def main(teams, year, raw_dir="./data/raw", processed_dir="./data/processed"):
         if not raw_df.empty:
             # process_data内で保存先を指定できるようにする
             df = process_data(raw_df, team, year, processed_dir)
-            print(f"Saved processed data to {processed_dir}/{year}_{team}.csv")
+            print(f"Saved processed data to {processed_dir}/{year}/{team}.csv")
             #print(df)
         else:
             print(f"No data found for {team} in {year}.")
@@ -188,6 +188,18 @@ def calculate_player_stats(stats_df):
     return stats_df
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process player data for a specific year or a range of years.')
+    parser.add_argument('--year', type=str, help='The year to process data for.')
+    args = parser.parse_args()
+
     team_list = ["g","t","c","db","s","d","f","e","m","l","b","h"]
-    main(team_list, "2024")
+
+    if args.year:
+        years_to_process = [args.year]
+    else:
+        years_to_process = ["2022", "2023", "2024"]
+
+    for year in years_to_process:
+        for team in team_list:
+            main([team], year)
     

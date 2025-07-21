@@ -1,4 +1,5 @@
 import os
+import argparse
 #import requests
 #import urllib  #HTMLにアクセス＆取得
 #from bs4 import BeautifulSoup #HTMLからデータ抽出
@@ -42,7 +43,26 @@ def scrape_player_data(team:str, year:str):
 
     df['選手'] = df['選手'].str.replace(r'\s+', '', regex=True)
 
-    csv_path = f"./data/raw/{year}_{team}.csv"
+    os.makedirs(f"./data/raw/{year}", exist_ok=True)
+    csv_path = f"./data/raw/{year}/{team}.csv"
     df.to_csv(csv_path,index=False)
 
     return df
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Scrape player data for a specific year or a range of years.')
+    parser.add_argument('--year', type=str, help='The year to scrape data for.')
+    args = parser.parse_args()
+
+    team_list = ["g","t","c","db","s","d","f","e","m","l","b","h"]
+    
+    if args.year:
+        years_to_scrape = [args.year]
+    else:
+        years_to_scrape = ["2022", "2023", "2024"]
+
+    for year in years_to_scrape:
+        for team in team_list:
+            print(f"Scraping data for team: {team}, year: {year}")
+            scrape_player_data(team, year)
+    
