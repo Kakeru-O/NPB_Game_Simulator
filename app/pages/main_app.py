@@ -1,6 +1,62 @@
 import streamlit as st
 import pandas as pd
 import math
+
+st.set_page_config(
+    page_title="NPB Game Simulator",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+HIDE_ST_STYLE = """
+                <style>
+                div[data-testid="stToolbar"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                div[data-testid="stDecoration"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                #MainMenu {
+                visibility: hidden;
+                height: 0%;
+                }
+                header {
+                visibility: hidden;
+                height: 0%;
+                }
+                footer {
+                visibility: hidden;
+                height: 0%;
+                }
+        .appview-container .main .block-container{
+                            padding-top: 1rem;
+                            padding-right: 3rem;
+                            padding-left: 3rem;
+                            padding-bottom: 1rem;
+                        }  
+                        .reportview-container {
+                            padding-top: 0rem;
+                            padding-right: 3rem;
+                            padding-left: 3rem;
+                            padding-bottom: 0rem;
+                        }
+                        header[data-testid="stHeader"] {
+                            z-index: -1;
+                        }
+                        div[data-testid="stToolbar"] {
+                        z-index: 100;
+                        }
+                        div[data-testid="stDecoration"] {
+                        z-index: 100;
+                        }
+                </style>
+"""
+
+st.html(HIDE_ST_STYLE)
 from app.utils.load_data import load_data_from_csv, load_default_lineups
 from app.utils.player import Player
 from app.utils.game import BaseballGame
@@ -36,8 +92,7 @@ def main():
     if "lineup_for_exploration" not in st.session_state:
         st.session_state.lineup_for_exploration = []
 
-    st.set_page_config(layout="wide")
-    st.title("NPB Game Simulator")
+    st.title("NPB Game Simulator") # アプリのタイトルを明示的に表示
 
     # サイドバー
     st.sidebar.header("設定")
@@ -80,14 +135,9 @@ def main():
     # チームカラーの取得
     selected_team_colors = TEAM_COLORS.get(team_abbr, {"main": "#000000", "accent": "#FFFFFF"}) # デフォルトは黒
 
-    # カスタムCSSでヘッダーとボタンの色を変更
+    # カスタムCSSでボタン、プログレスバー、データフレームのスタイルを変更
     st.html(f"""
         <style>
-        /* st.headerのクラス名 */
-        .st-emotion-cache-l9rwz9 {{ /* st.headerのクラス名 */
-            color: {selected_team_colors["main"]};
-        }}
-
         /* st.buttonのスタイル */
         div[data-testid="stButton"] > button {{
             background-color: {selected_team_colors["main"]};
@@ -110,6 +160,19 @@ def main():
         div[data-testid="stProgress"] > div > div {{
             background-color: {selected_team_colors["main"]};
         }}
+
+        /* メインコンテンツエリアのパディング調整 */
+        .st-emotion-cache-z5fcl4 {{ /* Streamlitのメインコンテンツブロックのクラス名 */
+            padding-top: 2rem; /* デフォルトより少し狭く */
+        }}
+
+        /* st.dataframeのスタイル */
+        div[data-testid="stDataFrame"] {{
+            border: 1px solid #e6e6e6; /* 薄いグレーのボーダー */
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 控えめなシャドウ */
+            overflow: hidden; /* ボーダーの角丸を適用 */
+        }}
         </style>
         """)
 
@@ -119,7 +182,7 @@ def main():
     player_data_display = load_data_from_csv(year,team_abbr,base_path="./data/raw")
     player_data_display = player_data_display[player_data_display['打席']>=50].reset_index(drop=True)
     # メインコンテンツ
-    tab1, tab2 = st.tabs(["任意打順でシミュレーション", "最強打順を探索"])
+    tab1, tab2 = st.tabs(["任意打順でシミュレーション", "最適打順を探索"])
 
     with tab1:
         st.header("任意打順でシミュレーション")
