@@ -1,4 +1,5 @@
 import os
+import argparse
 import pandas as pd
 import numpy as np
 import random
@@ -44,7 +45,10 @@ def get_default_lineup(year: str, league: str, team_abbr: str):
         dict: ポジション名をキー、選手名を値とする辞書。投手は含まない。
               例: {'捕': '選手A', '一': '選手B', ...}
     """
-    url = f'https://nf3.sakura.ne.jp/{year}/{league}/{team_abbr}/t/kiyou.htm'
+    if year == "2025":
+        url = f'https://nf3.sakura.ne.jp/{league}/{team_abbr}/t/kiyou.htm'
+    else:
+        url = f'https://nf3.sakura.ne.jp/{year}/{league}/{team_abbr}/t/kiyou.htm'
     try:
         # header=[0, 1] で2行をヘッダーとして読み込む
         tables = pd.read_html(url, header=[0, 1])
@@ -211,6 +215,14 @@ def generate_and_save_default_lineups(year: str, output_dir: str = "./data/proce
         print("No lineup data generated.")
 
 if __name__ == "__main__":
-    # 2022年から2025年までのデータを生成
-    for year in range(2022, 2026):
-        generate_and_save_default_lineups(year=str(year))
+    parser = argparse.ArgumentParser(description='Generate default lineups for a specific year or a range of years.')
+    parser.add_argument('--year', type=str, help='The year to generate lineups for.')
+    args = parser.parse_args()
+
+    if args.year:
+        years_to_generate = [args.year]
+    else:
+        years_to_generate = [str(y) for y in range(2022, 2026)]
+
+    for year in years_to_generate:
+        generate_and_save_default_lineups(year=year)
