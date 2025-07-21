@@ -96,7 +96,7 @@ def main():
 
     # サイドバー
     st.sidebar.header("設定")
-    year = st.sidebar.selectbox("年度", [2024, 2023, 2022])
+    year = st.sidebar.selectbox("年度", [2025, 2024, 2023, 2022],index=1)
     
     # チーム選択
     st.sidebar.subheader("チーム選択")
@@ -189,9 +189,11 @@ def main():
         
         if not player_data.empty:
             st.write(f"{year}年 {team_name}の選手データ")
-            st.dataframe(player_data_display)
+            st.write("50打席以上たった選手を表示しています。")
+            st.dataframe(player_data_display,use_container_width=True,hide_index=True)
 
             st.header("打順設定")
+            st.write("ポジションごとの最多出場選手を取得しています。")
             # DH制がオフの場合、投手データをplayer_dataに追加
             if not use_dh:
                 pitcher_name = PITCHER_STATS["Player"]
@@ -280,7 +282,7 @@ def main():
         st.header("最適打順を探索")
         st.write("ランダムな打順を生成し、143試合シミュレーションを複数回実行して、最も平均得点が高かった打順と低かった打順を探索します。")
 
-        num_trials = st.number_input("試行する打順の数", min_value=1, max_value=1000, value=100)
+        num_trials = st.number_input("試行する打順の数", min_value=1, max_value=1000, value=100, help="最大値は1000回です。")
 
         # Calculate total available players for permutation
         total_players_for_permutation = len(player_data)
@@ -333,13 +335,11 @@ def main():
 
                 st.header("最高平均得点打順")
                 st.write(f"総得点: {best_lineup["total_score"]} (平均得点: {best_lineup["avg_score"]:.2f})")
-                st.write("打順:", ", ".join(best_lineup["lineup"]))
-                st.dataframe(best_lineup["player_stats"])
+                st.dataframe(best_lineup["player_stats"],use_container_width=True)
 
                 st.header("最低平均得点打順")
                 st.write(f"総得点: {worst_lineup["total_score"]} (平均得点: {worst_lineup["avg_score"]:.2f})")
-                st.write("打順:", ", ".join(worst_lineup["lineup"]))
-                st.dataframe(worst_lineup["player_stats"])
+                st.dataframe(worst_lineup["player_stats"],use_container_width=True)
 
 if __name__ == "__main__":
     main()
