@@ -8,6 +8,8 @@ on:
 
 jobs:
   update-data:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Check date
@@ -66,6 +68,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "feat: Update 2025 data (closes #14)"
+            git commit -m "feat: Update 2025 data"
             git push
           fi
