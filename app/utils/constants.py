@@ -43,3 +43,19 @@ SACRIFICE_BUNT_SUCCESS_RATE = 0.8 # 犠打成功率
 DOUBLE_PLAY_PROBABILITY = 0.4 # 併殺打確率
 GROUND_OUT_ADVANCE_PROBABILITY = 0.3 # 進塁打確率
 SACRIFICE_FLY_PROBABILITY = 0.5 # 犠飛確率
+
+# チームカラー設定
+TEAM_COLORS = {
+    "t": {"main": "#FFE201", "accent": "#000000"}, # 阪神 (黄、黒)
+    "g": {"main": "#F97709", "accent": "#000000"}, # 巨人 (オレンジ、黒)
+    "c": {"main": "#CD1919", "accent": "#FFFFFF"}, # 広島 (赤、白)
+    "s": {"main": "#98C145", "accent": "#FFFFFF"}, # ヤクルト (濃い青、水色)
+    "d": {"main": "#002569", "accent": "#FFFFFF"}, # 中日 (濃い青、グレー)
+    "db": {"main": "#003F8E", "accent": "#FFFFFF"}, # DeNA (青、白)
+    "f": {"main": "#01609A", "accent": "#FFFFFF"}, # 日本ハム (紺、赤)
+    "e": {"main": "#8C0000", "accent": "#FFFFFF"}, # 楽天 (えんじ、白)
+    "m": {"main": "#000000", "accent": "#FFFFFF"}, # ロッテ (黒、白)
+    "l": {"main": "#051E46", "accent": "#FFFFFF"}, # 西武 (青、白)
+    "b": {"main": "#002D6B", "accent": "#B88E4F"}, # オリックス (紺、茶)
+    "h": {"main": "#FFB800", "accent": "#000000"}, # ソフトバンク (黄、黒)
+}

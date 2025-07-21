@@ -1,9 +1,67 @@
 import streamlit as st
 import pandas as pd
-from utils.load_data import load_data_from_csv, load_default_lineups
-from utils.player import Player
-from utils.game import BaseballGame
-from utils.simulator import display_player_stats, find_best_and_worst_lineups, simulate_season
+import math
+
+st.set_page_config(
+    page_title="NPB Game Simulator",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+HIDE_ST_STYLE = """
+                <style>
+                div[data-testid="stToolbar"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                div[data-testid="stDecoration"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                #MainMenu {
+                visibility: hidden;
+                height: 0%;
+                }
+                header {
+                visibility: hidden;
+                height: 0%;
+                }
+                footer {
+                visibility: hidden;
+                height: 0%;
+                }
+        .appview-container .main .block-container{
+                            padding-top: 1rem;
+                            padding-right: 3rem;
+                            padding-left: 3rem;
+                            padding-bottom: 1rem;
+                        }  
+                        .reportview-container {
+                            padding-top: 0rem;
+                            padding-right: 3rem;
+                            padding-left: 3rem;
+                            padding-bottom: 0rem;
+                        }
+                        header[data-testid="stHeader"] {
+                            z-index: -1;
+                        }
+                        div[data-testid="stToolbar"] {
+                        z-index: 100;
+                        }
+                        div[data-testid="stDecoration"] {
+                        z-index: 100;
+                        }
+                </style>
+"""
+
+st.html(HIDE_ST_STYLE)
+from app.utils.load_data import load_data_from_csv, load_default_lineups
+from app.utils.player import Player
+from app.utils.game import BaseballGame
+from app.utils.simulator import display_player_stats, find_best_and_worst_lineups, simulate_season
+from app.utils.constants import PITCHER_STATS, TEAM_COLORS
 
 TEAM_NAME_TO_ABBR = {
     "阪神": "t", "広島": "c", "DeNA": "db", "巨人": "g", "ヤクルト": "s", "中日": "d",
@@ -20,7 +78,6 @@ def create_player_list(lineup: list[str], player_data: pd.DataFrame) -> list[Pla
     for player_name in lineup:
         # 投手データの場合
         if player_name == "投手":
-            from utils.constants import PITCHER_STATS
             player_stats = pd.Series(PITCHER_STATS)
         else:
             player_stats = player_data[player_data["Player"] == player_name].iloc[0]
@@ -35,42 +92,113 @@ def main():
     if "lineup_for_exploration" not in st.session_state:
         st.session_state.lineup_for_exploration = []
 
-    st.title("NPB Game Simulator")
+    st.title("NPB Game Simulator") # アプリのタイトルを明示的に表示
 
     # サイドバー
     st.sidebar.header("設定")
     year = st.sidebar.selectbox("年度", [2024, 2023, 2022])
-    team_name = st.sidebar.selectbox("チーム", list(TEAM_NAME_TO_ABBR.keys()))
-    use_dh = st.sidebar.checkbox("DH制を使用する", value=True) # デフォルトはDH制あり
+    
+    # チーム選択
+    st.sidebar.subheader("チーム選択")
+    teams = list(TEAM_NAME_TO_ABBR.keys())
+    
+    # セッションステートで選択中のチームを管理
+    if "selected_team" not in st.session_state:
+        st.session_state.selected_team = teams[0] # デフォルトは最初のチーム
+
+    # st.pills を使用してチーム選択を実装
+    selected_team_pills = st.sidebar.pills(
+        "",
+        options=teams,
+        default=st.session_state.selected_team, # indexの代わりにdefaultを使用
+        key="team_pills",
+        label_visibility="collapsed",
+    )
+
+    if selected_team_pills != st.session_state.selected_team:
+        st.session_state.selected_team = selected_team_pills
+        st.rerun()
+    
+    team_name = st.session_state.selected_team
+    # セッションステートでDH制の状態を管理
+    if "use_dh" not in st.session_state:
+        st.session_state.use_dh = True # デフォルトはDH制あり
+
+    use_dh = st.sidebar.checkbox("DH制を使用する", value=st.session_state.use_dh, key="dh_checkbox")
+    if use_dh != st.session_state.use_dh:
+        st.session_state.use_dh = use_dh
+        st.rerun()
 
     # 選択されたチームの略称を取得
     team_abbr = TEAM_NAME_TO_ABBR[team_name]
 
+    # チームカラーの取得
+    selected_team_colors = TEAM_COLORS.get(team_abbr, {"main": "#000000", "accent": "#FFFFFF"}) # デフォルトは黒
+
+    # カスタムCSSでボタン、プログレスバー、データフレームのスタイルを変更
+    st.html(f"""
+        <style>
+        /* st.buttonのスタイル */
+        div[data-testid="stButton"] > button {{
+            background-color: {selected_team_colors["main"]};
+            color: {selected_team_colors["accent"]};
+            border: 1px solid {selected_team_colors["main"]};
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.2s ease-in-out;
+        }}
+        div[data-testid="stButton"] > button:hover {{
+            background-color: {selected_team_colors["accent"]};
+            color: {selected_team_colors["main"]};
+            border: 1px solid {selected_team_colors["main"]};
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }}
+
+        /* st.progressのスタイル */
+        div[data-testid="stProgress"] > div > div {{
+            background-color: {selected_team_colors["main"]};
+        }}
+
+        /* メインコンテンツエリアのパディング調整 */
+        .st-emotion-cache-z5fcl4 {{ /* Streamlitのメインコンテンツブロックのクラス名 */
+            padding-top: 2rem; /* デフォルトより少し狭く */
+        }}
+
+        /* st.dataframeのスタイル */
+        div[data-testid="stDataFrame"] {{
+            border: 1px solid #e6e6e6; /* 薄いグレーのボーダー */
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 控えめなシャドウ */
+            overflow: hidden; /* ボーダーの角丸を適用 */
+        }}
+        </style>
+        """)
+
     # 選手データの読み込み
     player_data = load_data_from_csv(year, team_abbr)
     default_lineup_df = load_default_lineups(year)
-
+    player_data_display = load_data_from_csv(year,team_abbr,base_path="./data/raw")
+    player_data_display = player_data_display[player_data_display['打席']>=50].reset_index(drop=True)
     # メインコンテンツ
-    tab1, tab2 = st.tabs(["任意打順でシミュレーション", "最強打順を探索"])
+    tab1, tab2 = st.tabs(["任意打順でシミュレーション", "最適打順を探索"])
 
     with tab1:
         st.header("任意打順でシミュレーション")
         
         if not player_data.empty:
             st.write(f"{year}年 {team_name}の選手データ")
-            st.dataframe(player_data)
+            st.dataframe(player_data_display)
 
             st.header("打順設定")
-            player_names = player_data["Player"].tolist()
-            
-            # DH制がオフの場合、投手を追加
+            # DH制がオフの場合、投手データをplayer_dataに追加
             if not use_dh:
-                from utils.constants import PITCHER_STATS
                 pitcher_name = PITCHER_STATS["Player"]
-                player_names.append(pitcher_name)
-                # 投手データをplayer_dataに追加（一時的に）
                 pitcher_df = pd.DataFrame([PITCHER_STATS])
                 player_data = pd.concat([player_data, pitcher_df], ignore_index=True)
+
+            player_names = player_data["Player"].tolist()
 
             # デフォルトスタメンを取得
             default_lineup_names = []
@@ -79,9 +207,13 @@ def main():
                 if not team_lineup.empty:
                     default_lineup_names = team_lineup['Player'].tolist()
 
-            # DH制オフでデフォルト打順が8人の場合、投手を9人目として追加
-            if not use_dh and len(default_lineup_names) == 8:
-                default_lineup_names.append(pitcher_name)
+            # DH制オフの場合、9番目を投手に設定
+            if not use_dh:
+                # デフォルト打順が9人未満の場合、9人になるまで適当な選手で埋める
+                while len(default_lineup_names) < 9:
+                    default_lineup_names.append(player_names[0]) # 最初の選手で埋める
+                # 9番目を投手に設定
+                default_lineup_names[8] = pitcher_name
             # DH制オンでセ・リーグで8人しかいない場合、9人目を追加
             elif use_dh and team_name in CENTRAL_LEAGUE_TEAMS and len(default_lineup_names) == 8:
                 for p_name in player_names:
@@ -145,14 +277,27 @@ def main():
             st.error("選手データを読み込めませんでした。")
 
     with tab2:
-        st.header("最強打順を探索")
+        st.header("最適打順を探索")
         st.write("ランダムな打順を生成し、143試合シミュレーションを複数回実行して、最も平均得点が高かった打順と低かった打順を探索します。")
 
         num_trials = st.number_input("試行する打順の数", min_value=1, max_value=1000, value=100)
 
+        # Calculate total available players for permutation
+        total_players_for_permutation = len(player_data)
+
+        # Calculate permutations for "全選手からランダムに9名選んで探索"
+        if total_players_for_permutation >= 9:
+            permutations_all_players = math.perm(total_players_for_permutation, 9)
+        else:
+            permutations_all_players = 0 # Not enough players
+
+        # Calculate factorial for "任意打順で選択した9名の並び替えで探索"
+        factorial_9 = math.factorial(9)
+
         simulation_mode = st.radio(
             "シミュレーションモード",
-            ("全選手からランダムに9名選んで探索", "任意打順で選択した9名の並び替えで探索"),
+            (f"全選手からランダムに9名選んで探索 ({permutations_all_players:,}通り)",
+             f"任意打順で選択した9名の並び替えで探索 ({factorial_9:,}通り)"),
             index=0
         )
 
