@@ -3,7 +3,7 @@ Year,League,Team,Team_Abbr,Position,Player
 2025,Central,ヤクルト,S,一,オスナ
 2025,Central,ヤクルト,S,二,山田哲人
 2025,Central,ヤクルト,S,三,村上宗隆
-2025,Central,ヤクルト,S,遊,伊藤琉偉
+2025,Central,ヤクルト,S,遊,長岡秀樹
 2025,Central,ヤクルト,S,左,内山壮真
 2025,Central,ヤクルト,S,中,岩田幸宏
 2025,Central,ヤクルト,S,右,太田賢吾
@@ -23,7 +23,7 @@ Year,League,Team,Team_Abbr,Position,Player
 2025,Central,阪神,T,左,前川右京
 2025,Central,阪神,T,中,近本光司
 2025,Central,阪神,T,右,森下翔太
-2025,Central,巨人,G,捕,甲斐拓也
+2025,Central,巨人,G,捕,岸田行倫
 2025,Central,巨人,G,一,増田陸
 2025,Central,巨人,G,二,吉川尚輝
 2025,Central,巨人,G,三,岡本和真
@@ -55,7 +55,7 @@ Year,League,Team,Team_Abbr,Position,Player
 2025,Pacific,オリックス,B,左,西川龍馬
 2025,Pacific,オリックス,B,中,中川圭太
 2025,Pacific,オリックス,B,右,杉本裕太郎
-2025,Pacific,オリックス,B,指,ディアス
+2025,Pacific,オリックス,B,指,森友哉
 2025,Pacific,ソフトバンク,H,捕,海野隆司
 2025,Pacific,ソフトバンク,H,一,中村晃
 2025,Pacific,ソフトバンク,H,二,牧原大成
